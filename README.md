@@ -7,3 +7,4 @@ This simple module allows you to enter a URL to a YouTube or Vimeo video and whe
 
 Check the module configuration options for the name of the video url field, the video images field, as well as which thumbnail(s) you want grabbed.
 
+Forum: http://processwire.com/talk/topic/4614-youtube-and-vimeo-thumbnail-grabber/
