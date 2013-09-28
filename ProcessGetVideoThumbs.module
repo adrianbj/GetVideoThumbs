@@ -1,0 +1,192 @@
+<?php
+
+/**
+ * ProcessWire Get Video Thumbs
+ * by Adrian Jones
+ *
+ * Automatically populates an images field with all available thumbnails from YouTube and Vimeo
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModule {
+
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+        return array(
+            'title' => __('Get Video Thumbnails'),
+            'version' => 1,
+            'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
+            'singular' => true,
+            'autoload' => true,
+            );
+    }
+
+
+
+
+    protected static $configDefaults = array(
+        // global
+        "videoURLField" => "video_url",
+        "videoImagesField" => "video_images",
+        "youTubeImageNames" => "0, 1, 2, 3",
+        "vimeoImageNames" => "thumbnail_small, thumbnail_medium, thumbnail_large"
+    );
+
+
+    /**
+     * Data as used by the get/set functions
+     *
+     */
+    protected $data = array();
+
+
+    /**
+     * Initialize the module
+     *
+     */
+    public function init() {
+        $this->pages->addHookAfter('save', $this, 'importImages');
+    }
+
+
+    public function importImages($event){
+
+        $page = $event->arguments[0];
+
+        if($page->{$this->videoURLField}){
+
+            $videoURL = $page->{$this->videoURLField};
+
+            $page->{$this->videoImagesField}->deleteAll();
+            $page->save($this->videoImagesField);
+
+
+            //Much quicker method, but only works with YouTube with the watch?v= format
+            //parse_str( parse_url( $videoURL, PHP_URL_QUERY ), $array_of_vars );
+            //$videoID = $array_of_vars['v'];
+
+            // perform a strpos fast check before performing regex check
+            if(strpos($videoURL, '://www.youtube.com/watch') !== false || strpos($videoURL, '://www.youtube.com/v/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
+
+                //               1: full URL                                                 2:video id    3: query string (optional)
+                $regex = '#\s*(https?://(?:www\.)?youtu(?:.be|be.com)+/(?:watch/?\?v=|v/)?([^\s&<\'"]+))(&[-_,.=&;a-zA-Z0-9]*)?.*?#';
+                if(!preg_match_all($regex, $videoURL, $matches)) return;
+
+                $videoID = $matches[2][0];
+
+                foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
+
+                    //Copy images to PW images field
+                    $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
+                    $page->save($this->videoImagesField);
+
+                }
+
+            }
+            elseif(strpos($videoURL, '://vimeo.com/') !== false) {
+
+                if(preg_match_all('#\s*(https?://vimeo.com/(\d+)).*?#', $videoURL, $matches)) {
+
+                    $videoID = $matches[2][0];
+
+                    $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
+
+                    foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
+                        //Copy images to PW images field
+                        $page->{$this->videoImagesField}->add($data[0]->$image_name);
+                        $page->save($this->videoImagesField);
+                    }
+
+                }
+
+
+            }
+            else{
+                return;
+            }
+
+
+        }
+
+    }
+
+
+
+
+
+
+    /**
+     * Get any inputfields used for configuration of this Fieldtype.
+     *
+     * This is in addition to any configuration fields supplied by the parent Inputfield.
+     *
+     * @param Field $field
+     * @return InputfieldWrapper
+     *
+     */
+    public static function getModuleConfigInputfields(array $data) {
+
+        $modules = wire('modules');
+
+        foreach(self::$configDefaults as $key => $value) {
+            if(!isset($data[$key]) || $data[$key]=='') $data[$key] = $value;
+        }
+
+        $inputfields = new InputfieldWrapper();
+
+        $f = $modules->get("InputfieldText");
+        $f->attr('name', 'videoURLField');
+        $f->attr('value', $data["videoURLField"]);
+        $f->attr('size', 20);
+        $f->label = __('Video URL Field');
+        $f->description = __('The field to grab the video URL from.');
+        //$f->notes = __("");
+        $inputfields->add($f);
+
+
+        $f = $modules->get("InputfieldText");
+        $f->attr('name', 'videoImagesField');
+        $f->attr('value', $data["videoImagesField"]);
+        $f->attr('size', 20);
+        $f->label = __('Video Images Field');
+        $f->description = __('The field to send the video thumbnail images to.');
+        //$f->notes = __("");
+        $inputfields->add($f);
+
+
+        $f = $modules->get("InputfieldText");
+        $f->attr('name', 'youTubeImageNames');
+        $f->attr('value', $data["youTubeImageNames"]);
+        $f->attr('size', 20);
+        $f->label = __('YouTube Image Names');
+        $f->description = __('The names of the images you want to get. You can list as many of the options as you wish.');
+        $f->notes = __("Default: 0, 1, 2, 3\n\n0 is the main fullsize image.");
+        $inputfields->add($f);
+
+        $f = $modules->get("InputfieldText");
+        $f->attr('name', 'vimeoImageNames');
+        $f->attr('value', $data["vimeoImageNames"]);
+        $f->attr('size', 70);
+        $f->label = __('Vimeo Image Names');
+        $f->description = __('The names of the images you want to get. You can list as many of the options as you wish.');
+        $f->notes = __("Default: thumbnail_small, thumbnail_medium, thumbnail_large");
+        $inputfields->add($f);
+
+
+        return $inputfields;
+    }
+
+
+}
