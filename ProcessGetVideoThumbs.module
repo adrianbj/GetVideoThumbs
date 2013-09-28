@@ -34,14 +34,13 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     }
 
 
-
-
     protected static $configDefaults = array(
         // global
-        "videoURLField" => "video_url",
-        "videoImagesField" => "video_images",
+        "videoURLField" => "",
+        "videoImagesField" => "",
         "youTubeImageNames" => "maxresdefault, hqdefault, default, 0, 1, 2, 3",
-        "vimeoImageNames" => "thumbnail_small, thumbnail_medium, thumbnail_large"
+        "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
+        "whichImages" => "firstAvailable"
     );
 
 
@@ -66,6 +65,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $page = $event->arguments[0];
 
         if($page->{$this->videoURLField}){
+
+            if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
 
             $videoURL = $page->{$this->videoURLField};
 
@@ -92,6 +93,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg")){
                         $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                         $page->save($this->videoImagesField);
+                        if($this->whichImages == 'firstAvailable') return;
                     }
 
                 }
@@ -110,6 +112,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         if($this->fileExists($data[0]->$image_name)){
                             $page->{$this->videoImagesField}->add($data[0]->$image_name);
                             $page->save($this->videoImagesField);
+                            error_log('which:'.$this->whichImages);
+                            if($this->whichImages == 'firstAvailable') return;
                         }
                     }
 
@@ -157,6 +161,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $inputfields = new InputfieldWrapper();
 
         $f = $modules->get("InputfieldText");
+        $f->required = true;
         $f->attr('name', 'videoURLField');
         $f->attr('value', $data["videoURLField"]);
         $f->attr('size', 20);
@@ -167,6 +172,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
 
         $f = $modules->get("InputfieldText");
+        $f->required = true;
         $f->attr('name', 'videoImagesField');
         $f->attr('value', $data["videoImagesField"]);
         $f->attr('size', 20);
@@ -174,7 +180,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->description = __('The field to send the video thumbnail images to.');
         //$f->notes = __("");
         $inputfields->add($f);
-
 
         $f = $modules->get("InputfieldText");
         $f->attr('name', 'youTubeImageNames');
@@ -194,8 +199,19 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->notes = __("Default: thumbnail_small, thumbnail_medium, thumbnail_large");
         $inputfields->add($f);
 
+        $f = $modules->get("InputfieldSelect");
+        $f->attr('name', 'whichImages');
+        $f->attr('value', $data["whichImages"]);
+        $f->addOption('firstAvailable', __('First Available'));
+        $f->addOption('allAvailable', __('All Available'));
+        $f->attr('value', $data["whichImages"]);
+        $f->label = __('Which Images');
+        $f->description = __('Whether you want all the listed images grabbed, or just the first one that is available from those listed in the Image Names fields above.');
+        $inputfields->add($f);
+
 
         return $inputfields;
+
     }
 
 
