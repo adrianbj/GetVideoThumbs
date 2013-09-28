@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 4,
+            'version' => 5,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -112,19 +112,16 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         if($this->fileExists($data[0]->$image_name)){
                             $page->{$this->videoImagesField}->add($data[0]->$image_name);
                             $page->save($this->videoImagesField);
-                            error_log('which:'.$this->whichImages);
                             if($this->whichImages == 'firstAvailable') return;
                         }
                     }
 
                 }
 
-
             }
             else{
                 return;
             }
-
 
         }
 
@@ -213,6 +210,5 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         return $inputfields;
 
     }
-
 
 }
