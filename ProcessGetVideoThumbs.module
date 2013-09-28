@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 5,
+            'version' => 6,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -40,7 +40,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         "videoImagesField" => "",
         "youTubeImageNames" => "maxresdefault, hqdefault, default, 0, 1, 2, 3",
         "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
-        "whichImages" => "firstAvailable"
+        "whichImages" => "firstAvailable",
+        "disableRenaming" => 0
     );
 
 
@@ -93,6 +94,12 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg")){
                         $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                         $page->save($this->videoImagesField);
+
+                        if($this->disableRenaming != 1){
+                            $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
+                            $this->renameImage($page, $currentImage, $videoID, $image_id);
+                        }
+
                         if($this->whichImages == 'firstAvailable') return;
                     }
 
@@ -112,6 +119,12 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         if($this->fileExists($data[0]->$image_name)){
                             $page->{$this->videoImagesField}->add($data[0]->$image_name);
                             $page->save($this->videoImagesField);
+
+                            if($this->disableRenaming != 1){
+                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
+                                $this->renameImage($page, $currentImage, $videoID, $image_name);
+                            }
+
                             if($this->whichImages == 'firstAvailable') return;
                         }
                     }
@@ -126,6 +139,27 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         }
 
     }
+
+
+    /**
+     * Helper function to rename images
+     *
+     */
+    public function renameImage($page, $currentImage, $videoID, $image_id){
+
+        $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/".strtolower($videoID)."-". $image_id .".jpg";
+
+        // copy and rename
+        copy($currentImage->filename, $newImgName);
+
+        // remove old, add new image to page
+        $page->{$this->videoImagesField}->remove($currentImage); // orig, will get deleted
+        $page->{$this->videoImagesField}->add($newImgName); // new
+
+        $page->save($this->videoImagesField);
+
+    }
+
 
 
     /**
@@ -204,6 +238,14 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->attr('value', $data["whichImages"]);
         $f->label = __('Which Images');
         $f->description = __('Whether you want all the listed images grabbed, or just the first one that is available from those listed in the Image Names fields above.');
+        $inputfields->add($f);
+
+        $f = $modules->get("InputfieldCheckbox");
+        $f->attr('name', 'disableRenaming');
+        $f->attr('value', $data["disableRenaming"] ? $data["disableRenaming"] : 0 );
+        $f->attr('checked', $data["disableRenaming"] == '1' ? 'checked' : '' );
+        $f->label = __('Disable Renaming');
+        $f->description = __('By default, images are renamed to a defined format: videoID-ImageName.jpg. You can disable this behavior by checking this.');
         $inputfields->add($f);
 
 
