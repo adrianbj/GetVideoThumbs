@@ -6,7 +6,7 @@ Processwire module for automatically populates an images field with thumbnails (
 It allows you to enter URLs to YouTube and Vimeo videos in specified fields, and when you save the page it will grab thumbnails for the video and add them to a specified images field.
 
 Check the module configuration options for:
-* name(s) of the video url field(s)
+* the field(s) to search for videos
 * name of the video images field
 * which thumbnail(s) you want grabbed
 * whether to grab the first available or all available thumbnails based on those that you list
