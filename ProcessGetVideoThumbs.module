@@ -61,86 +61,94 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $this->pages->addHookAfter('save', $this, 'importImages');
     }
 
+    public function ready() {
+
+        // we're interested in page editor only
+        if(wire('page')->process != 'ProcessPageEdit') return;
+    }
 
     public function importImages($event){
 
         $page = $event->arguments[0];
 
-        if($page->{$this->videoURLField}){
-
-            if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
-
-            if(!$page->fields->{$this->videoImagesField}) return $this->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
-
-            $videoURL = $page->{$this->videoURLField};
-
+        if($page->{$this->videoImagesField}){
             $page->{$this->videoImagesField}->deleteAll();
             $page->save($this->videoImagesField);
-
-
-            //Much quicker method, but only works with YouTube with the watch?v= format
-            //parse_str( parse_url( $videoURL, PHP_URL_QUERY ), $array_of_vars );
-            //$videoID = $array_of_vars['v'];
-
-            // perform a strpos fast check before performing regex check
-            if(strpos($videoURL, '://www.youtube.com/watch') !== false || strpos($videoURL, '://www.youtube.com/v/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
-
-                //               1: full URL                                                 2:video id    3: query string (optional)
-                $regex = '#\s*(https?://(?:www\.)?youtu(?:.be|be.com)+/(?:watch/?\?v=|v/)?([^\s&<\'"]+))(&[-_,.=&;a-zA-Z0-9]*)?.*?#';
-                if(!preg_match_all($regex, $videoURL, $matches)) return;
-
-                $videoID = $matches[2][0];
-
-                foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
-
-                    //Copy images to PW images field
-                    if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg")){
-                        $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
-                        $page->save($this->videoImagesField);
-
-                        if($this->disableRenaming != 1){
-                            $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
-                            $this->renameImage($page, $currentImage, $videoID, $image_id);
-                        }
-
-                        if($this->whichImages == 'firstAvailable') return;
-                    }
-
-                }
-
-            }
-            elseif(strpos($videoURL, '://vimeo.com/') !== false) {
-
-                if(preg_match_all('#\s*(https?://vimeo.com/(\d+)).*?#', $videoURL, $matches)) {
-
-                    $videoID = $matches[2][0];
-
-                    $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
-
-                    foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
-                        //Copy images to PW images field
-                        if($this->fileExists($data[0]->$image_name)){
-                            $page->{$this->videoImagesField}->add($data[0]->$image_name);
-                            $page->save($this->videoImagesField);
-
-                            if($this->disableRenaming != 1){
-                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
-                                $this->renameImage($page, $currentImage, $videoID, $image_name);
-                            }
-
-                            if($this->whichImages == 'firstAvailable') return;
-                        }
-                    }
-
-                }
-
-            }
-            else{
-                return;
-            }
-
         }
 
+        foreach($this->videoURLField as $videoURLField){
+
+            if($page->{$videoURLField}){
+
+                if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
+
+                if(!$page->fields->{$this->videoImagesField}) return $this->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
+
+                $videoURL = $page->{$videoURLField};
+
+                //Quicker method, but only works with YouTube with the watch?v= format
+                //parse_str( parse_url( $videoURL, PHP_URL_QUERY ), $array_of_vars );
+                //$videoID = $array_of_vars['v'];
+
+                // perform a strpos fast check before performing regex check
+                if(strpos($videoURL, '://www.youtube.com/watch') !== false || strpos($videoURL, '://www.youtube.com/v/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
+
+                    //               1: full URL                                                 2:video id    3: query string (optional)
+                    $regex = '#\s*(https?://(?:www\.)?youtu(?:.be|be.com)+/(?:watch/?\?v=|v/)?([^\s&<\'"]+))(&[-_,.=&;a-zA-Z0-9]*)?.*?#';
+                    if(!preg_match_all($regex, $videoURL, $matches)) return;
+
+                    foreach($matches[0] as $key => $line) {
+                        $videoID = $matches[2][$key];
+
+                        $noMoreImages = 0;
+                        foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
+
+                            //Copy images to PW images field
+                            if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
+                                $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
+                                $page->save($this->videoImagesField);
+
+                                if($this->disableRenaming != 1){
+                                    $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
+                                    $this->renameImage($page, $currentImage, $videoID, $image_id);
+                                }
+
+                                if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
+                            }
+
+                        }
+                    }
+                }
+
+                if(strpos($videoURL, '://vimeo.com/') !== false) {
+
+                    if(preg_match_all('#\s*(https?://vimeo.com/(\d+)).*?#', $videoURL, $matches)) {
+
+                        foreach($matches[0] as $key => $line) {
+                            $videoID = $matches[2][$key];
+
+                            $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
+
+                            $noMoreImages = 0;
+                            foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
+                                //Copy images to PW images field
+                                if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
+                                    $page->{$this->videoImagesField}->add($data[0]->$image_name);
+                                    $page->save($this->videoImagesField);
+
+                                    if($this->disableRenaming != 1){
+                                        $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
+                                        $this->renameImage($page, $currentImage, $videoID, $image_name);
+                                    }
+
+                                    if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
 
@@ -194,24 +202,36 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
         $inputfields = new InputfieldWrapper();
 
-        $f = $modules->get("InputfieldText");
+        $f = $modules->get("InputfieldAsmSelect");
         $f->required = true;
         $f->attr('name', 'videoURLField');
         $f->attr('value', $data["videoURLField"]);
-        $f->attr('size', 20);
-        $f->label = __('Video URL Field');
-        $f->description = __('The field to grab the video URL from.');
+        $f->label = __('Video URL Fields');
+        $f->description = __('The field(s) to grab the video URL from.');
+        $f->setAsmSelectOption('sortable', false);
+        // populate with all available fields
+        foreach(wire('fields') as $fieldoption) {
+            // filter out incompatible field types
+            if($fieldoption->type == "FieldtypeText" || $fieldoption->type == "FieldtypeTextarea" || $fieldoption->type == "FieldtypeURL")  $f->addOption($fieldoption->name);
+        }
+        if(isset($data['videoURLField'])) $f->value = $data['videoURLField'];
         //$f->notes = __("");
         $inputfields->add($f);
 
 
-        $f = $modules->get("InputfieldText");
+        $f = $modules->get("InputfieldSelect");
         $f->required = true;
         $f->attr('name', 'videoImagesField');
         $f->attr('value', $data["videoImagesField"]);
-        $f->attr('size', 20);
         $f->label = __('Video Images Field');
         $f->description = __('The field to send the video thumbnail images to.');
+        $f->addOption('');
+        // populate with all available fields
+        foreach(wire('fields') as $fieldoption) {
+            // filter out incompatible field types
+            if($fieldoption->type == "FieldtypeImage")  $f->addOption($fieldoption->name);
+        }
+        if(isset($data['videoImagesField'])) $f->value = $data['videoImagesField'];
         //$f->notes = __("");
         $inputfields->add($f);
 
