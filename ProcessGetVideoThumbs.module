@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 10,
+            'version' => 11,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -59,12 +59,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      */
     public function init() {
         $this->pages->addHookAfter('save', $this, 'importImages');
-    }
-
-    public function ready() {
-
-        // we're interested in page editor only
-        if(wire('page')->process != 'ProcessPageEdit') return;
     }
 
     public function importImages($event){
