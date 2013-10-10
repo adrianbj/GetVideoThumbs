@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 14,
+            'version' => 15,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -102,7 +102,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
 
-                if(!$page->fields->{$this->videoImagesField}) return $this->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
+                if(!$page->fields->get("{$this->videoImagesField}")) return $this->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
 
                 $videoURL = $page->{$videoURLField};
 
