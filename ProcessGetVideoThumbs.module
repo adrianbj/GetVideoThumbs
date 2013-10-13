@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 15,
+            'version' => 16,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -40,8 +40,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         "videoImagesField" => "",
         "youTubeImageNames" => "maxresdefault, hqdefault, default, 0, 1, 2, 3",
         "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
-        "whichImages" => "firstAvailable",
-        "disableRenaming" => 0
+        "whichImages" => "firstAvailable"
     );
 
 
@@ -83,10 +82,10 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 if($this->whichImages != 'firstAvailable') {
                     $imageVideoNameArray = explode('-',$imageVideoName);
-                    $imageVideoID = trim(str_replace(array_pop($imageVideoNameArray), '', $imageVideoName),'-');
+                    $imageVideoID = str_replace('video-', '', trim(str_replace(array_pop($imageVideoNameArray), '', $imageVideoName),'-'));
                 }
                 else{
-                    $imageVideoID = $imageVideoName;
+                    $imageVideoID = str_replace('video-', '', $imageVideoName);
                 }
 
                 $existingImageIDs[] = $imageVideoID;
@@ -129,10 +128,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->save($this->videoImagesField);
 
-                                if($this->disableRenaming != 1){
-                                    $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
-                                    $this->renameImage($page, $currentImage, $videoID, $image_id);
-                                }
+                                $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
+                                $this->renameImage($page, $currentImage, $videoID, $image_id);
 
                                 if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
                             }
@@ -162,10 +159,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                     $page->{$this->videoImagesField}->add($data[0]->$image_name);
                                     $page->save($this->videoImagesField);
 
-                                    if($this->disableRenaming != 1){
-                                        $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
-                                        $this->renameImage($page, $currentImage, $videoID, $image_name);
-                                    }
+                                    $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
+                                    $this->renameImage($page, $currentImage, $videoID, $image_name);
 
                                     if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
                                 }
@@ -175,17 +170,20 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 }
             }
         }
+
         //Delete any images from videos that were removed from the text fields during this update
         if($page->{$this->videoImagesField}){
             foreach($page->{$this->videoImagesField} as $videoImage){
+
                 $imageVideoName = pathinfo($videoImage->filename,PATHINFO_FILENAME);
+                if(strpos($imageVideoName, 'video-') === false) continue;
 
                 if($this->whichImages != 'firstAvailable') {
                     $imageVideoNameArray = explode('-',$imageVideoName);
-                    $imageVideoID = trim(str_replace(array_pop($imageVideoNameArray), '', $imageVideoName),'-');
+                    $imageVideoID = str_replace('video-', '', trim(str_replace(array_pop($imageVideoNameArray), '', $imageVideoName),'-'));
                 }
                 else{
-                    $imageVideoID = $imageVideoName;
+                    $imageVideoID = str_replace('video-', '', $imageVideoName);
                 }
 
                 if(!in_array($imageVideoID, $allVideos)){
@@ -203,7 +201,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      */
     public function renameImage($page, $currentImage, $videoID, $image_id){
 
-        $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
+        $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
 
         // copy and rename
         copy($currentImage->filename, $newImgName);
