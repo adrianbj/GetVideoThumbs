@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 16,
+            'version' => 17,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -272,7 +272,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // populate with all available fields
         foreach(wire('fields') as $fieldoption) {
             // filter out incompatible field types
-            if($fieldoption->type == "FieldtypeImage")  $f->addOption($fieldoption->name);
+            if($fieldoption->type instanceof FieldtypeImage)  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoImagesField'])) $f->value = $data['videoImagesField'];
         //$f->notes = __("");
