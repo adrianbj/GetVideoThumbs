@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 18,
+            'version' => 19,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -284,7 +284,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->attr('size', 70);
         $f->label = __('YouTube Image Names');
         $f->description = __('The names of the images you want to get. You can list as many of the options as you wish.');
-        $f->notes = __("Default: maxresdefault, hqdefault, default, 0, 1, 2, 3");
+        $f->notes = __("Default: maxresdefault, hqdefault, mqdefault, default, 0, 1, 2, 3");
         $inputfields->add($f);
 
         $f = $modules->get("InputfieldText");
