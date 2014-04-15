@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 19,
+            'version' => 20,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -60,13 +60,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     }
 
     public function ready() {
-        // we're interested in page editor only
-        if(wire('page')->process != 'ProcessPageEdit') return;
-
-        // skip changing templates (only target the actual edit form)
-        $id = (int)$this->input->get->id;
-        if(!$id) return;
-
         $this->pages->addHookAfter('save', $this, 'importImages');
     }
 
@@ -126,6 +119,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                             //Copy images to PW images field
                             if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
                                 $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
+                                $page->of(false);
                                 $page->save($this->videoImagesField);
 
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
@@ -157,6 +151,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 //Copy images to PW images field
                                 if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
                                     $page->{$this->videoImagesField}->add($data[0]->$image_name);
+                                    $page->of(false);
                                     $page->save($this->videoImagesField);
 
                                     $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
@@ -188,6 +183,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 if(!in_array($imageVideoID, $allVideos)){
                     $page->{$this->videoImagesField}->delete($videoImage);
+                    $page->of(false);
                     $page->save($this->videoImagesField);
                 }
             }
@@ -209,7 +205,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // remove old, add new image to page
         $page->{$this->videoImagesField}->remove($currentImage); // orig, will get deleted
         $page->{$this->videoImagesField}->add($newImgName); // new
-
+        $page->of(false);
         $page->save($this->videoImagesField);
 
     }
