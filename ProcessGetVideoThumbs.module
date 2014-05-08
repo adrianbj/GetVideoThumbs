@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 21,
+            'version' => 22,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -103,14 +103,15 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 //YOUTUBE
                 // perform a strpos fast check before performing regex check
-                if(strpos($videoURL, '://www.youtube.com/watch') !== false || strpos($videoURL, '://www.youtube.com/v/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
+                if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
 
-                    //               1: full URL                                                 2:video id    3: query string (optional)
-                    $regex = '#\s*(https?://(?:www\.)?youtu(?:.be|be.com)+/(?:watch/?\?v=|v/)?([^\s&<\'"]+))(&[-_,.=&;a-zA-Z0-9]*)?.*?#';
+                    //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
+                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
 
-                    foreach($matches[0] as $key => $line) {
-                        $videoID = $matches[2][$key];
+                    foreach($matches[1] as $key => $line) {
+
+                        $videoID = $matches[1][$key];
 
                         $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
 
@@ -138,30 +139,29 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 //VIMEO
                 if(strpos($videoURL, '://vimeo.com/') !== false) {
 
-                    if(preg_match_all('#\s*(https?://vimeo.com/(\d+)).*?#', $videoURL, $matches)) {
+                    if(!preg_match_all("/\s*(https?:\/\/vimeo.com\/(\d+)).*?/", $videoURL, $matches)) return;
 
-                        foreach($matches[0] as $key => $line) {
-                            $videoID = $matches[2][$key];
+                    foreach($matches[0] as $key => $line) {
+                        $videoID = $matches[2][$key];
 
-                            $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
+                        $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
 
-                            if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
+                        if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
 
-                            $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
+                        $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
 
-                            $noMoreImages = 0;
-                            foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
-                                //Copy images to PW images field
-                                if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
-                                    $page->{$this->videoImagesField}->add($data[0]->$image_name);
-                                    $page->of(false);
-                                    $page->save($this->videoImagesField);
+                        $noMoreImages = 0;
+                        foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
+                            //Copy images to PW images field
+                            if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
+                                $page->{$this->videoImagesField}->add($data[0]->$image_name);
+                                $page->of(false);
+                                $page->save($this->videoImagesField);
 
-                                    $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
-                                    $this->renameImage($page, $currentImage, $videoID, $image_name);
+                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
+                                $this->renameImage($page, $currentImage, $videoID, $image_name);
 
-                                    if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
-                                }
+                                if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
                             }
                         }
                     }
