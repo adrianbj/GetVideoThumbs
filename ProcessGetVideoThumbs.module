@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 22,
+            'version' => 23,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -129,6 +129,37 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
                                 $this->renameImage($page, $currentImage, $videoID, $image_id);
 
+                                //add video title to thumbnail image description field
+                                if(function_exists('curl_init')){
+                                    //cURL approach
+                                    $ch = curl_init();
+                                    curl_setopt($ch, CURLOPT_URL, 'http://gdata.youtube.com/feeds/api/videos?q=' . $videoID);
+                                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                    //$feed holds a rss feed xml returned by youtube API
+                                    $feed = curl_exec($ch);
+                                    curl_close($ch);
+
+                                    $xml = simplexml_load_string($feed);
+
+                                    $entry = $xml->entry[0];
+                                    $media = $entry->children('media', true);
+                                    $group = $media->group;
+
+                                    $title = $group->title;
+                                }
+                                elseif(function_exists('file_get_contents')){
+                                    //file_get_contents approach
+                                    $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
+                                    parse_str($content, $ytarr);
+                                    $title = stripslashes($ytarr['title']);
+                                }
+
+                                //add title to last image in field and save
+                                if($title){
+                                    $page->{$this->videoImagesField}->last()->description = $title;
+                                    $page->save($this->videoImagesField);
+                                }
+
                                 if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
                             }
 
@@ -160,6 +191,19 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                                 $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
                                 $this->renameImage($page, $currentImage, $videoID, $image_name);
+
+                                //add video title to thumbnail image description field
+                                if(function_exists('simplexml_load_file')){
+                                    $xml = simplexml_load_file("http://vimeo.com/api/v2/video/".$videoID.".xml");
+                                    $xml = $xml->video;
+                                    $title = $xml->title;
+                                }
+
+                                //add title to last image in field and save
+                                if($title){
+                                    $page->{$this->videoImagesField}->last()->description = $title;
+                                    $page->save($this->videoImagesField);
+                                }
 
                                 if($this->whichImages == 'firstAvailable') $noMoreImages = 1;
                             }
