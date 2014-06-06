@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 23,
+            'version' => 24,
             'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
@@ -142,12 +142,13 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                     $xml = simplexml_load_string($feed);
 
                                     $entry = $xml->entry[0];
-                                    $media = $entry->children('media', true);
-                                    $group = $media->group;
-
-                                    $title = $group->title;
+                                    if(is_object($entry)){
+                                        $media = $entry->children('media', true);
+                                        $group = $media->group;
+                                        $title = $group->title;
+                                    }
                                 }
-                                elseif(function_exists('file_get_contents')){
+                                if(!$title && function_exists('file_get_contents')){
                                     //file_get_contents approach
                                     $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
                                     parse_str($content, $ytarr);
