@@ -27,7 +27,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         return array(
             'title' => __('Get Video Thumbnails'),
             'version' => 24,
-            'summary' => __('Automatically populates an images field with thumbnails (poster imagses) from YouTube and Vimeo'),
+            'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'singular' => true,
             'autoload' => true,
             );
