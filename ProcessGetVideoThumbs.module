@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 28,
+            'version' => 29,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
             'singular' => true,
@@ -70,7 +70,16 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
         $page = $event->arguments[0];
 
-        if(count($this->enabledTemplates) > 0 && !in_array($page->template->id, $this->enabledTemplates)) return;
+        //actual page is the page housing the repeater field
+        //used just below for checking if the template of this actual page is allowed
+        if(method_exists($page, 'getForPage')) {
+            $actualPage = $page->getForPage();
+        }
+        else {
+            $actualPage = $page;
+        }
+
+        if(count($this->enabledTemplates) > 0 && !in_array($actualPage->template->id, $this->enabledTemplates)) return;
 
         //if page doesn't contain the Video Images Field (where thumbnails are to be stored), exit now
         if(!$page->{$this->videoImagesField}) return;
@@ -79,6 +88,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         if($page->{$this->videoImagesField}){
             $existingImageIDs = array();
             foreach($page->{$this->videoImagesField} as $videoImage){
+
                 $imageVideoName = pathinfo($videoImage->filename,PATHINFO_FILENAME);
 
                 if($this->whichImages != 'firstAvailable') {
@@ -109,31 +119,24 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 //YOUTUBE
                 // perform a strpos fast check before performing regex check
                 if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
-
                     //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
                     $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
-
                     foreach($matches[1] as $key => $line) {
-
                         $videoID = $matches[1][$key];
 
                         $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
 
                         if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
-
                         $noMoreImages = 0;
                         foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
-
                             //Copy images to PW images field
                             if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
                                 $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
-
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
                                 $this->renameImage($page, $currentImage, $videoID, $image_id);
-
                                 //add video title to thumbnail image description field
                                 if(function_exists('curl_init')){
                                     //cURL approach
