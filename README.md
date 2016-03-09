@@ -12,8 +12,8 @@ Check the module configuration options for:
 * which thumbnail(s) you want grabbed
 * whether to grab the first available or all available thumbnails based on those that you list
 
-
-Forum: http://processwire.com/talk/topic/4614-youtube-and-vimeo-thumbnail-grabber/
+####Support forum:
+http://processwire.com/talk/topic/4614-youtube-and-vimeo-thumbnail-grabber/
 
 ## License
 

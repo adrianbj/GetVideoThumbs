@@ -28,6 +28,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
             'title' => __('Get Video Thumbnails'),
             'version' => 31,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
+            'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
             'singular' => true,
             'autoload' => true,
