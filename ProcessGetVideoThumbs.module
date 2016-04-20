@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 33,
+            'version' => 34,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -122,8 +122,10 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
                         $noMoreImages = 0;
                         foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
+                            $title = null;
                             //Copy images to PW images field
                             if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
+                                if($this->fields->{$this->videoImagesField}->maxFiles != 0 && count($page->{$this->videoImagesField}) == $this->fields->{$this->videoImagesField}->maxFiles) break 2;
                                 $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
@@ -188,6 +190,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
                             //Copy images to PW images field
                             if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
+                                if($this->fields->{$this->videoImagesField}->maxFiles != 0 && count($page->{$this->videoImagesField}) == $this->fields->{$this->videoImagesField}->maxFiles) break 2;
                                 $page->{$this->videoImagesField}->add($data[0]->$image_name);
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
