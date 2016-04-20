@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 31,
+            'version' => 32,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -139,16 +139,18 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                     $feed = curl_exec($ch);
                                     curl_close($ch);
 
-                                    $xml = simplexml_load_string($feed);
+                                    if($feed != "No longer available") {
+                                        $xml = simplexml_load_string($feed);
 
-                                    $entry = $xml->entry[0];
-                                    if(is_object($entry)){
-                                        $media = $entry->children('media', true);
-                                        $group = $media->group;
-                                        $title = $group->title;
+                                        $entry = $xml->entry[0];
+                                        if(is_object($entry)){
+                                            $media = $entry->children('media', true);
+                                            $group = $media->group;
+                                            $title = $group->title;
+                                        }
                                     }
                                 }
-                                if(!$title && function_exists('file_get_contents')){
+                                if($feed != "No longer available" && !$title && function_exists('file_get_contents')){
                                     //file_get_contents approach
                                     $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
                                     parse_str($content, $ytarr);
@@ -156,7 +158,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 }
 
                                 //add title to last image in field and save
-                                if($title){
+                                if($feed != "No longer available" && $title){
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
                                 }
@@ -267,7 +269,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public function fileExists($path){
         //return (@fopen($path,"r")==true);
         $file_headers = @get_headers($path);
-        if($file_headers[0] == 'HTTP/1.1 404 Not Found') {
+        if (strpos($file_headers[0], '200') === false) {
             return false;
         }
         else {
