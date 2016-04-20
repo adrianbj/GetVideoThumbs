@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 32,
+            'version' => 33,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -150,7 +150,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                         }
                                     }
                                 }
-                                if($feed != "No longer available" && !$title && function_exists('file_get_contents')){
+                                if((!isset($title) || !$title) && function_exists('file_get_contents')){
                                     //file_get_contents approach
                                     $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
                                     parse_str($content, $ytarr);
@@ -158,7 +158,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 }
 
                                 //add title to last image in field and save
-                                if($feed != "No longer available" && $title){
+                                if($title){
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
                                 }
