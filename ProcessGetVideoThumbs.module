@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 34,
+            'version' => 35,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -95,7 +95,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
             }
         }
 
-
         $allVideos = array();
 
         foreach($this->videoURLField as $videoURLField){
@@ -125,12 +124,12 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                             $title = null;
                             //Copy images to PW images field
                             if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
-                                if($this->fields->{$this->videoImagesField}->maxFiles != 0 && count($page->{$this->videoImagesField}) == $this->fields->{$this->videoImagesField}->maxFiles) break 2;
                                 $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
-                                $this->renameImage($page, $currentImage, $videoID, $image_id);
+                                $newImgName = "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
+                                $currentImage->rename($newImgName);
                                 //add video title to thumbnail image description field
                                 if(function_exists('curl_init')){
                                     //cURL approach
@@ -190,13 +189,13 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
                             //Copy images to PW images field
                             if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
-                                if($this->fields->{$this->videoImagesField}->maxFiles != 0 && count($page->{$this->videoImagesField}) == $this->fields->{$this->videoImagesField}->maxFiles) break 2;
                                 $page->{$this->videoImagesField}->add($data[0]->$image_name);
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
 
                                 $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
-                                $this->renameImage($page, $currentImage, $videoID, $image_name);
+                                $newImgName = "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
+                                $currentImage->rename($newImgName);
 
                                 //add video title to thumbnail image description field
                                 if(function_exists('simplexml_load_file')){
@@ -239,30 +238,11 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     $page->of(false);
                     $page->save($this->videoImagesField);
                 }
+
             }
         }
-    }
-
-
-    /**
-     * Helper function to rename images
-     *
-     */
-    public function renameImage($page, $currentImage, $videoID, $image_id){
-
-        $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
-
-        // copy and rename
-        copy($currentImage->filename, $newImgName);
-
-        // remove old, add new image to page
-        $page->{$this->videoImagesField}->remove($currentImage); // orig, will get deleted
-        $page->{$this->videoImagesField}->add($newImgName); // new
-        $page->of(false);
-        $page->save($this->videoImagesField);
 
     }
-
 
 
     /**
@@ -338,11 +318,12 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->attr('value', $data["videoImagesField"]);
         $f->label = __('Video Images Field');
         $f->description = __('The field to send the video thumbnail images to.');
+        $f->notes = __('Note: Only image fields with "Maximum files allowed" set to "0" are allowed and listed here.');
         $f->addOption('');
         // populate with all available fields
         foreach(wire('fields') as $fieldoption) {
             // filter out incompatible field types
-            if($fieldoption->type instanceof FieldtypeImage)  $f->addOption($fieldoption->name);
+            if($fieldoption->type instanceof FieldtypeImage && $fieldoption->maxFiles == 0)  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoImagesField'])) $f->value = $data['videoImagesField'];
         //$f->notes = __("");
