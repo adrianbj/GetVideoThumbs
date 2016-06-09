@@ -95,19 +95,20 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
             }
         }
         
-        foreach($this->videoURLField as $videoURLFieldKey => $videoURLField){
+        $customVideoURLFields = $this->videoURLField;
+        foreach($customVideoURLFields as $videoURLFieldKey => $videoURLField){
             $vURLf = wire('fields')->get($videoURLField);
             if($vURLf->type == "FieldtypeTextareas"){
-                unset($this->videoURLField[$videoURLFieldKey]);
+                unset($customVideoURLFields[$videoURLFieldKey]);
                 foreach ($vURLf->type->getTextareaDefinitions($vURLf) as $key => $value) {
-                    $this->videoURLField[] = $vURLf->name . "." . $key;
+                    $customVideoURLFields[] = $vURLf->name . "." . $key;
                 }
             }
         }
 
         $allVideos = array();
 
-        foreach($this->videoURLField as $videoURLField){
+        foreach($customVideoURLFields as $videoURLField){
 
             if($page->{$videoURLField}){
 
