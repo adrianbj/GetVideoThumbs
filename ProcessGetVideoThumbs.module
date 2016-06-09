@@ -94,6 +94,16 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 $existingImageIDs[] = $imageVideoID;
             }
         }
+        
+        foreach($this->videoURLField as $videoURLFieldKey => $videoURLField){
+            $vURLf = wire('fields')->get($videoURLField);
+            if($vURLf->type == "FieldtypeTextareas"){
+                unset($this->videoURLField[$videoURLFieldKey]);
+                foreach ($vURLf->type->getTextareaDefinitions($vURLf) as $key => $value) {
+                    $this->videoURLField[] = $vURLf->name . "." . $key;
+                }
+            }
+        }
 
         $allVideos = array();
 
@@ -306,7 +316,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // populate with all available fields
         foreach(wire('fields') as $fieldoption) {
             // filter out incompatible field types
-            if($fieldoption->type == "FieldtypeText" || $fieldoption->type == "FieldtypeTextarea" || $fieldoption->type == "FieldtypeURL")  $f->addOption($fieldoption->name);
+            if($fieldoption->type == "FieldtypeText" || $fieldoption->type == "FieldtypeTextarea" || $fieldoption->type == "FieldtypeURL" || $fieldoption->type == "FieldtypeTextareas")  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoURLField'])) $f->value = $data['videoURLField'];
         $inputfields->add($f);
