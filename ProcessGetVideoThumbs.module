@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 35,
+            'version' => 36,
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -97,24 +97,23 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         }
 
         // support FieldtypeTextareas exception
-        $customVideoURLFields = $this->videoURLField;
-        foreach($customVideoURLFields as $videoURLFieldKey => $videoURLField){
+        $videoURLFields = $this->videoURLField; // rename badly named singular settings variable to plural
+        foreach($videoURLFields as $videoURLFieldKey => $videoURLField) {
             $searchField = wire('fields')->get($videoURLField);
-            if($searchField->type == "FieldtypeTextareas"){
-                unset($customVideoURLFields[$videoURLFieldKey]);
-                foreach ($searchField->type->getTextareaDefinitions($searchField) as $key => $value) {
-                    $textareasFieldName = $searchField->name . "." . $key;
-                    if (in_array(wire('fields')->get($textareasFieldName)->type, self::$configDefaults))
-                        $customVideoURLFields[] = $textareasFieldName;
+            if($searchField->type == "FieldtypeTextareas") {
+                unset($videoURLFields[$videoURLFieldKey]);
+                foreach($searchField->type->getTextareaDefinitions($searchField) as $name => $definition) {
+                    $textareasFieldName = $searchField->name . "." . $name;
+                    $videoURLFields[] = $textareasFieldName;
                 }
             }
         }
 
         $allVideos = array();
 
-        foreach($customVideoURLFields as $videoURLField){
+        foreach($videoURLFields as $videoURLField) {
 
-            if($page->{$videoURLField}){
+            if($page->{$videoURLField}) {
 
                 if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
 
@@ -128,25 +127,24 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
                     $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
+
                     foreach($matches[1] as $key => $line) {
                         $videoID = $matches[1][$key];
-
                         $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
 
                         if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
                         $noMoreImages = 0;
-                        foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id){
+                        foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id) {
                             $title = null;
                             //Copy images to PW images field
-                            if($this->fileExists("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0){
-                                $page->{$this->videoImagesField}->add("http://img.youtube.com/vi/".$videoID."/".$image_id.".jpg");
+                            if($this->fileExists("http://i.ytimg.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0) {
                                 $page->of(false);
+                                $page->{$this->videoImagesField}->add("http://i.ytimg.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->save($this->videoImagesField);
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
-                                $newImgName = "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
-                                $currentImage->rename($newImgName);
+                                $this->renameImage($page, $currentImage, $videoID, $image_id);
                                 //add video title to thumbnail image description field
-                                if(function_exists('curl_init')){
+                                if(function_exists('curl_init')) {
                                     //cURL approach
                                     $ch = curl_init();
                                     curl_setopt($ch, CURLOPT_URL, 'http://gdata.youtube.com/feeds/api/videos?q=' . $videoID);
@@ -159,18 +157,18 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                         $xml = simplexml_load_string($feed);
 
                                         $entry = $xml->entry[0];
-                                        if(is_object($entry)){
+                                        if(is_object($entry)) {
                                             $media = $entry->children('media', true);
                                             $group = $media->group;
                                             $title = $group->title;
                                         }
                                     }
                                 }
-                                if((!isset($title) || !$title) && function_exists('file_get_contents')){
+                                if((!isset($title) || !$title) && function_exists('file_get_contents')) {
                                     //file_get_contents approach
                                     $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
                                     parse_str($content, $ytarr);
-                                    $title = stripslashes($ytarr['title']);
+                                    if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
                                 }
 
                                 //add title to last image in field and save
@@ -201,26 +199,25 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
 
                         $noMoreImages = 0;
-                        foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name){
+                        foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name) {
                             //Copy images to PW images field
-                            if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0){
+                            if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0) {
                                 $page->{$this->videoImagesField}->add($data[0]->$image_name);
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
 
                                 $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
-                                $newImgName = "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
-                                $currentImage->rename($newImgName);
+                                $this->renameImage($page, $currentImage, $videoID, $image_name);
 
                                 //add video title to thumbnail image description field
-                                if(function_exists('simplexml_load_file')){
+                                if(function_exists('simplexml_load_file')) {
                                     $xml = simplexml_load_file("http://vimeo.com/api/v2/video/".$videoID.".xml");
                                     $xml = $xml->video;
                                     $title = $xml->title;
                                 }
 
                                 //add title to last image in field and save
-                                if($title){
+                                if($title) {
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
                                 }
@@ -234,8 +231,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         }
 
         //Delete any images from videos that were removed from the text fields during this update
-        if($page->{$this->videoImagesField}){
-            foreach($page->{$this->videoImagesField} as $videoImage){
+        if($page->{$this->videoImagesField}) {
+            foreach($page->{$this->videoImagesField} as $videoImage) {
 
                 $imageVideoName = pathinfo($videoImage->filename,PATHINFO_FILENAME);
                 if(strpos($imageVideoName, 'video-') === false) continue;
@@ -248,7 +245,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     $imageVideoID = str_replace('video-', '', $imageVideoName);
                 }
 
-                if(!in_array($imageVideoID, $allVideos)){
+                if(!in_array($imageVideoID, $allVideos)) {
                     $page->{$this->videoImagesField}->delete($videoImage);
                     $page->of(false);
                     $page->save($this->videoImagesField);
@@ -259,13 +256,30 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
     }
 
+    /**
+     * Helper function to rename images
+     *
+     */
+    public function renameImage($page, $currentImage, $videoID, $image_id){
+
+        $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
+
+        // copy and rename
+        copy($currentImage->filename, $newImgName);
+
+        // remove old, add new image to page
+        $page->{$this->videoImagesField}->remove($currentImage); // orig, will get deleted
+        $page->{$this->videoImagesField}->add($newImgName); // new
+        $page->of(false);
+        $page->save($this->videoImagesField);
+
+    }
 
     /**
      * Helper function to check if image exists on remote server
      *
      */
-    public function fileExists($path){
-        //return (@fopen($path,"r")==true);
+    public function fileExists($path) {
         $file_headers = @get_headers($path);
         if (strpos($file_headers[0], '200') === false) {
             return false;
@@ -341,7 +355,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
             if($fieldoption->type instanceof FieldtypeImage && $fieldoption->maxFiles == 0)  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoImagesField'])) $f->value = $data['videoImagesField'];
-        //$f->notes = __("");
         $inputfields->add($f);
 
         $f = $modules->get("InputfieldText");
@@ -350,7 +363,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->attr('size', 70);
         $f->label = __('YouTube Image Names');
         $f->description = __('The names of the images you want to get. You can list as many of the options as you wish.');
-        $f->notes = __("Default: maxresdefault, hqdefault, mqdefault, default, 0, 1, 2, 3");
+        $f->notes = __("Default: maxresdefault, sddefault, hqdefault, mqdefault, default, 0, 1, 2, 3");
         $inputfields->add($f);
 
         $f = $modules->get("InputfieldText");
@@ -371,7 +384,6 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->label = __('Which Images');
         $f->description = __('Whether you want all the listed images grabbed, or just the first one that is available from those listed in the Image Names fields above.');
         $inputfields->add($f);
-
 
         return $inputfields;
 
