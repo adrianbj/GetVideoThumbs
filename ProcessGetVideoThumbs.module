@@ -44,7 +44,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         "videoImagesField" => "",
         "youTubeImageNames" => "maxresdefault, sddefault, hqdefault, mqdefault, default, 0, 1, 2, 3",
         "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
-        "whichImages" => "firstAvailable"
+        "whichImages" => "firstAvailable",
+        "searchVideoFieldTypes" => array("FieldtypeText", "FieldtypeTextarea", "FieldtypeURL", "FieldtypeTextareas")
     );
 
 
@@ -94,14 +95,17 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 $existingImageIDs[] = $imageVideoID;
             }
         }
-        
+
+        // support FieldtypeTextareas exception
         $customVideoURLFields = $this->videoURLField;
         foreach($customVideoURLFields as $videoURLFieldKey => $videoURLField){
-            $vURLf = wire('fields')->get($videoURLField);
-            if($vURLf->type == "FieldtypeTextareas"){
+            $searchField = wire('fields')->get($videoURLField);
+            if($searchField->type == "FieldtypeTextareas"){
                 unset($customVideoURLFields[$videoURLFieldKey]);
-                foreach ($vURLf->type->getTextareaDefinitions($vURLf) as $key => $value) {
-                    $customVideoURLFields[] = $vURLf->name . "." . $key;
+                foreach ($searchField->type->getTextareaDefinitions($searchField) as $key => $value) {
+                    $textareasFieldName = $searchField->name . "." . $key;
+                    if (in_array(wire('fields')->get($textareasFieldName)->type, self::$configDefaults))
+                        $customVideoURLFields[] = $textareasFieldName;
                 }
             }
         }
@@ -317,7 +321,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // populate with all available fields
         foreach(wire('fields') as $fieldoption) {
             // filter out incompatible field types
-            if($fieldoption->type == "FieldtypeText" || $fieldoption->type == "FieldtypeTextarea" || $fieldoption->type == "FieldtypeURL" || $fieldoption->type == "FieldtypeTextareas")  $f->addOption($fieldoption->name);
+            if(in_array($fieldoption->type, $data["searchVideoFieldTypes"]))  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoURLField'])) $f->value = $data['videoURLField'];
         $inputfields->add($f);
