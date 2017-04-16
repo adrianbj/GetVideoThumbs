@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => 36,
+            'version' => '1.0.0',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -45,7 +45,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         "youTubeImageNames" => "maxresdefault, sddefault, hqdefault, mqdefault, default, 0, 1, 2, 3",
         "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
         "whichImages" => "firstAvailable",
-        "searchVideoFieldTypes" => array("FieldtypeText", "FieldtypeTextarea", "FieldtypeURL", "FieldtypeTextareas")
+        "searchVideoFieldTypes" => array("FieldtypeText", "FieldtypeTextLanguage", "FieldtypeTextarea", "FieldtypeTextareaLanguage", "FieldtypeURL", "FieldtypeTextareas")
     );
 
 
@@ -65,10 +65,10 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     }
 
     public function ready() {
-        $this->pages->addHookAfter('save', $this, 'importImages');
+        $this->wire('pages')->addHookAfter('save', $this, 'importImages');
     }
 
-    public function importImages($event){
+    protected function importImages($event){
 
         $page = $event->arguments[0];
 
@@ -99,7 +99,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // support FieldtypeTextareas exception
         $videoURLFields = $this->videoURLField; // rename badly named singular settings variable to plural
         foreach($videoURLFields as $videoURLFieldKey => $videoURLField) {
-            $searchField = wire('fields')->get($videoURLField);
+            $searchField = $this->wire('fields')->get($videoURLField);
             if($searchField->type == "FieldtypeTextareas") {
                 unset($videoURLFields[$videoURLFieldKey]);
                 foreach($searchField->type->getTextareaDefinitions($searchField) as $name => $definition) {
@@ -260,7 +260,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      * Helper function to rename images
      *
      */
-    public function renameImage($page, $currentImage, $videoID, $image_id){
+    private function renameImage($page, $currentImage, $videoID, $image_id){
 
         $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
 
@@ -279,7 +279,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      * Helper function to check if image exists on remote server
      *
      */
-    public function fileExists($path) {
+    private function fileExists($path) {
         $file_headers = @get_headers($path);
         if (strpos($file_headers[0], '200') === false) {
             return false;
@@ -300,9 +300,9 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      * @return InputfieldWrapper
      *
      */
-    public static function getModuleConfigInputfields(array $data) {
+    public function getModuleConfigInputfields(array $data) {
 
-        $modules = wire('modules');
+        $modules = $this->wire('modules');
 
         foreach(self::$configDefaults as $key => $value) {
             if(!isset($data[$key]) || $data[$key]=='') $data[$key] = $value;
@@ -318,7 +318,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->description = __('The template(s) to search for video URLs. If none selected, all will be searched.');
         $f->setAsmSelectOption('sortable', false);
         // populate with all available fields
-        foreach(wire('templates') as $template) {
+        foreach($this->wire('templates') as $template) {
             $f->addOption($template->id, $template->label ? $template->label : $template->name);
         }
         if(isset($data['enabledTemplates'])) $f->value = $data['enabledTemplates'];
@@ -333,7 +333,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->description = __('The field(s) to search for video URLs.');
         $f->setAsmSelectOption('sortable', false);
         // populate with all available fields
-        foreach(wire('fields') as $fieldoption) {
+        foreach($this->wire('fields') as $fieldoption) {
             // filter out incompatible field types
             if(in_array($fieldoption->type, $data["searchVideoFieldTypes"]))  $f->addOption($fieldoption->name);
         }
@@ -350,7 +350,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $f->notes = __('Note: Only image fields with "Maximum files allowed" set to "0" are allowed and listed here.');
         $f->addOption('');
         // populate with all available fields
-        foreach(wire('fields') as $fieldoption) {
+        foreach($this->wire('fields') as $fieldoption) {
             // filter out incompatible field types
             if($fieldoption->type instanceof FieldtypeImage && $fieldoption->maxFiles == 0)  $f->addOption($fieldoption->name);
         }
