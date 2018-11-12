@@ -123,9 +123,9 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 //YOUTUBE
                 // perform a strpos fast check before performing regex check
-                if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false) {
+                if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false || strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
                     //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
-                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
+                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com|youtube-nocookie\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
 
                     foreach($matches[1] as $key => $line) {
@@ -138,6 +138,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                             $title = null;
                             //Copy images to PW images field
                             if($this->fileExists("http://i.ytimg.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0) {
+
                                 $page->of(false);
                                 $page->{$this->videoImagesField}->add("http://i.ytimg.com/vi/".$videoID."/".$image_id.".jpg");
                                 $page->save($this->videoImagesField);
