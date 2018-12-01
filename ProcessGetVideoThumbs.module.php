@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.0.1',
+            'version' => '1.1.0',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -125,7 +125,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                 // perform a strpos fast check before performing regex check
                 if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false || strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
                     //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
-                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com|youtube-nocookie\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
+                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
 
                     foreach($matches[1] as $key => $line) {
@@ -145,32 +145,10 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
                                 $this->renameImage($page, $currentImage, $videoID, $image_id);
                                 //add video title to thumbnail image description field
-                                if(function_exists('curl_init')) {
-                                    //cURL approach
-                                    $ch = curl_init();
-                                    curl_setopt($ch, CURLOPT_URL, 'http://gdata.youtube.com/feeds/api/videos?q=' . $videoID);
-                                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                                    //$feed holds a rss feed xml returned by youtube API
-                                    $feed = curl_exec($ch);
-                                    curl_close($ch);
-
-                                    if($feed != "No longer available") {
-                                        $xml = simplexml_load_string($feed);
-
-                                        $entry = $xml->entry[0];
-                                        if(is_object($entry)) {
-                                            $media = $entry->children('media', true);
-                                            $group = $media->group;
-                                            $title = $group->title;
-                                        }
-                                    }
-                                }
-                                if((!isset($title) || !$title) && function_exists('file_get_contents')) {
-                                    //file_get_contents approach
-                                    $content = file_get_contents("http://youtube.com/get_video_info?video_id=".$videoID);
-                                    parse_str($content, $ytarr);
-                                    if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
-                                }
+                                $http = new WireHttp();
+                                $videoInfo = $http->get("http://youtube.com/get_video_info?video_id=".$videoID);
+                                parse_str($videoInfo, $ytarr);
+                                if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
 
                                 //add title to last image in field and save
                                 if($title){
