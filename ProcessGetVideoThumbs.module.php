@@ -6,7 +6,7 @@
  *
  * Automatically populates an images field with all available thumbnails from YouTube and Vimeo
  *
- * ProcessWire 2.x
+ * ProcessWire 3.x
  * Copyright (C) 2011 by Ryan Cramer
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  *
@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.0',
+            'version' => '1.1.1',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -72,12 +72,12 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
         $page = $event->arguments[0];
 
-        if(count($this->enabledTemplates) > 0 && !in_array($page->template->id, $this->enabledTemplates)) return;
+        if(isset($this->enabledTemplates) && count($this->enabledTemplates) > 0 && !in_array($page->template->id, $this->enabledTemplates)) return;
 
-        //if page doesn't contain the Video Images Field (where thumbnails are to be stored), exit now
+        // if page doesn't contain the Video Images Field (where thumbnails are to be stored), exit now
         if(!$page->{$this->videoImagesField}) return;
 
-        //populate array of videoIDs from the existing images
+        // populate array of videoIDs from the existing images
         if($page->{$this->videoImagesField}){
             $existingImageIDs = array();
             foreach($page->{$this->videoImagesField} as $videoImage){
@@ -97,7 +97,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         }
 
         // support FieldtypeTextareas exception
-        $videoURLFields = $this->videoURLField; // rename badly named singular settings variable to plural
+        // rename badly named singular settings variable to plural
+        $videoURLFields = $this->videoURLField;
         foreach($videoURLFields as $videoURLFieldKey => $videoURLField) {
             $searchField = $this->wire('fields')->get($videoURLField);
             if($searchField->type == "FieldtypeTextareas") {
@@ -121,22 +122,24 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 $videoURL = $page->{$videoURLField};
 
-                //YOUTUBE
+                // YOUTUBE
                 // perform a strpos fast check before performing regex check
                 if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false || strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
-                    //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url
+                    //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url and -nocookie url
                     $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
 
                     foreach($matches[1] as $key => $line) {
                         $videoID = $matches[1][$key];
-                        $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
+                        // populate array of video IDs for later cleanup of unnecessary images
+                        $allVideos[] = strtolower($videoID);
 
-                        if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
+                        // skip if we already have image(s) for this video
+                        if(in_array(strtolower($videoID), $existingImageIDs)) continue;
                         $noMoreImages = 0;
                         foreach(preg_split('/[\.,\s]/', $this->youTubeImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_id) {
                             $title = null;
-                            //Copy images to PW images field
+                            // copy images to PW images field
                             if($this->fileExists("http://i.ytimg.com/vi/".$videoID."/".$image_id.".jpg") && $noMoreImages == 0) {
 
                                 $page->of(false);
@@ -144,13 +147,13 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $page->save($this->videoImagesField);
                                 $currentImage = $page->{$this->videoImagesField}->get("name=$image_id.jpg");
                                 $this->renameImage($page, $currentImage, $videoID, $image_id);
-                                //add video title to thumbnail image description field
+                                // add video title to thumbnail image description field
                                 $http = new WireHttp();
                                 $videoInfo = $http->get("http://youtube.com/get_video_info?video_id=".$videoID);
                                 parse_str($videoInfo, $ytarr);
                                 if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
 
-                                //add title to last image in field and save
+                                // add title to last image in field and save
                                 if($title){
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
@@ -163,7 +166,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     }
                 }
 
-                //VIMEO
+                // VIMEO
                 if(strpos($videoURL, '://vimeo.com/') !== false) {
 
                     if(!preg_match_all("/\s*(https?:\/\/vimeo.com\/(\d+)).*?/", $videoURL, $matches)) return;
@@ -171,15 +174,17 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                     foreach($matches[0] as $key => $line) {
                         $videoID = $matches[2][$key];
 
-                        $allVideos[] = strtolower($videoID); //populate array of video IDs for later cleanup of unnecessary images
+                        // populate array of video IDs for later cleanup of unnecessary images
+                        $allVideos[] = strtolower($videoID);
 
-                        if(in_array(strtolower($videoID), $existingImageIDs)) continue; //skip if we already have image(s) for this video
+                        // skip if we already have image(s) for this video
+                        if(in_array(strtolower($videoID), $existingImageIDs)) continue;
 
                         $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
 
                         $noMoreImages = 0;
                         foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name) {
-                            //Copy images to PW images field
+                            // copy images to PW images field
                             if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0) {
                                 $page->{$this->videoImagesField}->add($data[0]->$image_name);
                                 $page->of(false);
@@ -188,14 +193,14 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
                                 $this->renameImage($page, $currentImage, $videoID, $image_name);
 
-                                //add video title to thumbnail image description field
+                                // add video title to thumbnail image description field
                                 if(function_exists('simplexml_load_file')) {
                                     $xml = simplexml_load_file("http://vimeo.com/api/v2/video/".$videoID.".xml");
                                     $xml = $xml->video;
                                     $title = $xml->title;
                                 }
 
-                                //add title to last image in field and save
+                                // add title to last image in field and save
                                 if($title) {
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
@@ -209,7 +214,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
             }
         }
 
-        //Delete any images from videos that were removed from the text fields during this update
+        // delete any images from videos that were removed from the text fields during this update
         if($page->{$this->videoImagesField}) {
             foreach($page->{$this->videoImagesField} as $videoImage) {
 
