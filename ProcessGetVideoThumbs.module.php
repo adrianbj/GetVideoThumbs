@@ -68,7 +68,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $this->wire('pages')->addHookAfter('save', $this, 'importImages');
     }
 
-    protected function importImages($event){
+    protected function importImages($event) {
 
         $page = $event->arguments[0];
 
@@ -78,9 +78,9 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         if(!$page->{$this->videoImagesField}) return;
 
         // populate array of videoIDs from the existing images
-        if($page->{$this->videoImagesField}){
+        if($page->{$this->videoImagesField}) {
             $existingImageIDs = array();
-            foreach($page->{$this->videoImagesField} as $videoImage){
+            foreach($page->{$this->videoImagesField} as $videoImage) {
 
                 $imageVideoName = pathinfo($videoImage->filename,PATHINFO_FILENAME);
 
@@ -154,7 +154,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
 
                                 // add title to last image in field and save
-                                if($title){
+                                if($title) {
                                     $page->{$this->videoImagesField}->last()->description = $title;
                                     $page->save($this->videoImagesField);
                                 }
@@ -244,7 +244,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
      * Helper function to rename images
      *
      */
-    private function renameImage($page, $currentImage, $videoID, $image_id){
+    private function renameImage($page, $currentImage, $videoID, $image_id) {
 
         $newImgName = pathinfo($currentImage->filename, PATHINFO_DIRNAME) . "/video-".strtolower($videoID).($this->whichImages != "firstAvailable" ? "-". $image_id : "") .".jpg";
 
