@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.3',
+            'version' => '1.1.4',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -179,25 +179,20 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         // skip if we already have image(s) for this video
                         if(in_array(strtolower($videoID), $existingImageIDs)) continue;
 
-                        $data = json_decode(file_get_contents("http://vimeo.com/api/v2/video/$videoID.json", true));
+                        $http = new WireHttp();
+                        $data = $http->getJSON("http://vimeo.com/api/v2/video/".$videoID.".json");
+                        $title = $data[0]['title'];
 
                         $noMoreImages = 0;
                         foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name) {
                             // copy images to PW images field
-                            if($this->fileExists($data[0]->$image_name) && $noMoreImages == 0) {
-                                $page->{$this->videoImagesField}->add($data[0]->$image_name);
+                            if($this->fileExists($data[0][$image_name]) && $noMoreImages == 0) {
+                                $page->{$this->videoImagesField}->add($data[0][$image_name]);
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
 
-                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0]->$image_name, PATHINFO_BASENAME));
+                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0][$image_name], PATHINFO_BASENAME));
                                 $this->renameImage($page, $currentImage, $videoID, $image_name);
-
-                                // add video title to thumbnail image description field
-                                if(function_exists('simplexml_load_file')) {
-                                    $http = new WireHttp();
-                                    $json = $http->getJSON("http://vimeo.com/api/v2/video/".$videoID.".json");
-                                    $title = $json[0]['title'];
-                                }
 
                                 // add title to last image in field and save
                                 if($title) {
