@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.1',
+            'version' => '1.1.2',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -44,8 +44,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         "videoImagesField" => "",
         "youTubeImageNames" => "maxresdefault, sddefault, hqdefault, mqdefault, default, 0, 1, 2, 3",
         "vimeoImageNames" => "thumbnail_large, thumbnail_medium, thumbnail_small",
-        "whichImages" => "firstAvailable",
-        "searchVideoFieldTypes" => array("FieldtypeText", "FieldtypeTextLanguage", "FieldtypeTextarea", "FieldtypeTextareaLanguage", "FieldtypeURL", "FieldtypeTextareas")
+        "whichImages" => "firstAvailable"
     );
 
 
@@ -319,7 +318,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         // populate with all available fields
         foreach($this->wire('fields') as $fieldoption) {
             // filter out incompatible field types
-            if(in_array($fieldoption->type, $data["searchVideoFieldTypes"]))  $f->addOption($fieldoption->name);
+            if($fieldoption->type instanceof FieldtypeText)  $f->addOption($fieldoption->name);
         }
         if(isset($data['videoURLField'])) $f->value = $data['videoURLField'];
         $inputfields->add($f);
