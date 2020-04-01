@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.4',
+            'version' => '1.1.5',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -100,11 +100,16 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
         $videoURLFields = $this->videoURLField;
         foreach($videoURLFields as $videoURLFieldKey => $videoURLField) {
             $searchField = $this->wire('fields')->get($videoURLField);
-            if($searchField->type == "FieldtypeTextareas") {
-                unset($videoURLFields[$videoURLFieldKey]);
-                foreach($searchField->type->getTextareaDefinitions($searchField) as $name => $definition) {
-                    $textareasFieldName = $searchField->name . "." . $name;
-                    $videoURLFields[] = $textareasFieldName;
+            if(!$searchField) {
+                $this->wire()->error($this->_("The '".$videoURLField."' field specified in the GetVideoThumbs module is no longer present. Please update the settings for this module."));
+            }
+            else {
+                if($searchField->type == "FieldtypeTextareas") {
+                    unset($videoURLFields[$videoURLFieldKey]);
+                    foreach($searchField->type->getTextareaDefinitions($searchField) as $name => $definition) {
+                        $textareasFieldName = $searchField->name . "." . $name;
+                        $videoURLFields[] = $textareasFieldName;
+                    }
                 }
             }
         }
@@ -115,9 +120,9 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
             if($page->{$videoURLField}) {
 
-                if($this->videoImagesField == '') return $this->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
+                if($this->videoImagesField == '') return $this->wire()->error($this->_("Your module config is not fully configured. Please fill out the Video Images Field"));
 
-                if(!$page->fields->get("{$this->videoImagesField}")) return $this->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
+                if(!$page->fields->get("{$this->videoImagesField}")) return $this->wire()->error($this->_("The template for this page does not contain the defined video images field. Please add the field that you defined in the module settings: {$this->videoImagesField}"));
 
                 $videoURL = $page->{$videoURLField};
 
