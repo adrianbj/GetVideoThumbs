@@ -26,7 +26,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.5',
+            'version' => '1.1.6',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -153,9 +153,8 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                                 $this->renameImage($page, $currentImage, $videoID, $image_id);
                                 // add video title to thumbnail image description field
                                 $http = new WireHttp();
-                                $videoInfo = $http->get("http://youtube.com/get_video_info?video_id=".$videoID);
-                                parse_str($videoInfo, $ytarr);
-                                if(isset($ytarr['title'])) $title = stripslashes($ytarr['title']);
+                                $videoInfo = $http->getJSON("https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=".$videoID."&format=json");
+                                if(isset($videoInfo['title'])) $title = stripslashes($videoInfo['title']);
 
                                 // add title to last image in field and save
                                 if($title) {
