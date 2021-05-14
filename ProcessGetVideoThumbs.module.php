@@ -6,12 +6,8 @@
  *
  * Automatically populates an images field with all available thumbnails from YouTube and Vimeo
  *
- * ProcessWire 3.x
- * Copyright (C) 2011 by Ryan Cramer
+ * Copyright (C) 2021 by Adrian Jones
  * Licensed under GNU/GPL v2, see LICENSE.TXT
- *
- * http://www.processwire.com
- * http://www.ryancramer.com
  *
  */
 
@@ -26,7 +22,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.6',
+            'version' => '1.1.7',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -191,11 +187,45 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
                         foreach(preg_split('/[\.,\s]/', $this->vimeoImageNames, -1, PREG_SPLIT_NO_EMPTY) as $image_name) {
                             // copy images to PW images field
                             if($this->fileExists($data[0][$image_name]) && $noMoreImages == 0) {
-                                $page->{$this->videoImagesField}->add($data[0][$image_name]);
+
+                                $allowed_extensions = array('jpg', 'jpeg', 'webp');
+
+                                $url = $data[0][$image_name];
+
+                                // Validate file extension if one exists
+				                $parsed_url = parse_url($url);
+                                $path_parts = pathinfo($parsed_url['path']);
+                                $extension = isset($path_parts['extension']) ? $path_parts['extension'] : '';
+                                if($extension) {
+                                    if(!in_array($extension, $allowed_extensions)) {
+                                        $this->error( sprintf($this->_('%1$s is not an allowed extension for field "%2$s".'), $extension, $field_name) );
+                                        continue;
+                                    }
+                                } else {
+                                    // Remote file has no extension, so download to temp directory
+                                    $files = $this->wire('files');
+                                    $td = $files->tempDir($this->className);
+                                    $td_path = (string) $td;
+                                    $destination = $td_path . $path_parts['basename'];
+                                    copy($url, $destination);
+                                    $mime_type = mime_content_type($destination);
+                                    $add_extension = array_search($mime_type, $this->wire('config')->fileContentTypes);
+                                    // Add file extension if valid for the field
+                                    if(in_array($add_extension, $allowed_extensions)) {
+                                        $url = "$destination.$add_extension";
+                                        $files->rename($destination, $url);
+                                    } else {
+                                        $this->error( sprintf($this->_('The remote file %1$s has no file extension and its MIME type does not correspond with a valid file extension for field "%2$s".'), $url, $field_name) );
+                                        continue;
+                                    }
+                                }
+
+
+                                $page->{$this->videoImagesField}->add($url);
                                 $page->of(false);
                                 $page->save($this->videoImagesField);
 
-                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($data[0][$image_name], PATHINFO_BASENAME));
+                                $currentImage = $page->{$this->videoImagesField}->get("name=".pathinfo($url, PATHINFO_BASENAME));
                                 $this->renameImage($page, $currentImage, $videoID, $image_name);
 
                                 // add title to last image in field and save
