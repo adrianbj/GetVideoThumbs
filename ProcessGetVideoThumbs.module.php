@@ -6,7 +6,7 @@
  *
  * Automatically populates an images field with all available thumbnails from YouTube and Vimeo
  *
- * Copyright (C) 2021 by Adrian Jones
+ * Copyright (C) 2026 by Adrian Jones
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  *
  */
@@ -22,7 +22,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.7',
+            'version' => '1.1.8',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -124,9 +124,19 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 // YOUTUBE
                 // perform a strpos fast check before performing regex check
-                if(strpos($videoURL, '://www.youtube.com/') !== false || strpos($videoURL, '://youtu.be/') !== false || strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
-                    //modified from http://stackoverflow.com/a/17030234 to handle <p> tags around the url and -nocookie url
-                    $regex = "/\s*(?:http(?:s)?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|v|vi|user)\/))([^\?#&\"'<>]+)/";
+                if(strpos($videoURL, '://www.youtube.com/') !== false ||
+                strpos($videoURL, '://youtu.be/') !== false ||
+                strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
+
+                    // Regex to handle regular YouTube URLs and Shorts
+                    $regex = '/(?:https?:\/\/)?(?:www\.)?'
+                        . '(?:youtu\.be\/'
+                        . '|youtube(?:-nocookie)?\.com\/'
+                        . '(?:watch\?(?:.*&)?v(?:i)?='
+                        . '|(?:embed|v|vi|user)\/'
+                        . '|shorts\/))'
+                        . '([^\?#&\"\'<>]+)/';
+
                     if(!preg_match_all($regex, $videoURL, $matches)) return;
 
                     foreach($matches[1] as $key => $line) {
