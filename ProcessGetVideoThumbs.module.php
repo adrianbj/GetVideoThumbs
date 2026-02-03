@@ -22,7 +22,7 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
     public static function getModuleInfo() {
         return array(
             'title' => __('Get Video Thumbnails'),
-            'version' => '1.1.8',
+            'version' => '1.1.9',
             'summary' => __('Automatically populates an images field with thumbnails (poster images) from YouTube and Vimeo'),
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/process-get-video-thumbs/',
@@ -124,9 +124,13 @@ class ProcessGetVideoThumbs extends WireData implements Module, ConfigurableModu
 
                 // YOUTUBE
                 // perform a strpos fast check before performing regex check
-                if(strpos($videoURL, '://www.youtube.com/') !== false ||
-                strpos($videoURL, '://youtu.be/') !== false ||
-                strpos($videoURL, '://www.youtube-nocookie.com/') !== false) {
+                if(
+                    strpos($videoURL, '://youtube.com/') !== false ||
+                    strpos($videoURL, '://www.youtube.com/') !== false ||
+                    strpos($videoURL, '://youtu.be/') !== false ||
+                    strpos($videoURL, '://www.youtube-nocookie.com/') !== false
+                    )
+                {
 
                     // Regex to handle regular YouTube URLs and Shorts
                     $regex = '/(?:https?:\/\/)?(?:www\.)?'
